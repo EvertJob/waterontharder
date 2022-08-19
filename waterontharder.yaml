@@ -90,7 +90,7 @@ sensor:
     timeout: 2.0m
     filters:
     - delta: 0.01
-    - lambda: return (0.51-x)*100;
+    - lambda: return (0.${total_height}-x)*100;
     unit_of_measurement: "cm"
 
   - platform: wifi_signal
