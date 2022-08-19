@@ -1,0 +1,113 @@
+substitutions:
+  capacity: "35" # Maximum capacity in kilograms
+  corrected_height: "46" # Maximum filling height
+  total_height: "51" # height in centimeters
+  
+
+  device_name: "waterontharder"
+  friendly_name: "Waterontharder"
+  project_name: "Toppe.Waterontharder"
+  project_version: "1.0"
+  
+  
+esphome:
+  name: "${device_name}"
+  project:
+    name: "${project_name}"
+    version: "${project_version}"
+
+esp8266:
+  board: esp01_1m
+
+logger:
+  level: INFO
+
+api:
+
+ota:
+
+web_server:
+  port: 80
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  ap: {}
+  
+captive_portal:
+    
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: IPv4 adres
+    ssid:
+      name: Verbonden netwerk
+      disabled_by_default: true
+  - platform: template
+    name: Uptime
+    id: uptime_human
+    icon: mdi:clock-start
+    entity_category: diagnostic
+
+binary_sensor:
+  - platform: status
+    name: "${friendly_name} Status"
+    icon: "mdi:wifi-check"
+    disabled_by_default: true
+    
+sensor:
+  - platform: uptime
+    name: Uptime Sensor (raw)
+    disabled_by_default: true
+    id: uptime_sensor
+    update_interval: 30s
+    on_raw_value:
+      then:
+        - text_sensor.template.publish:
+            id: uptime_human
+            state: !lambda |-
+              int seconds = round(id(uptime_sensor).raw_state);
+              int days = seconds / (24 * 3600);
+              seconds = seconds % (24 * 3600);
+              int hours = seconds / 3600;
+              seconds = seconds % 3600;
+              int minutes = seconds /  60;
+              seconds = seconds % 60;
+              return (
+                (days ? to_string(days) + "d " : "") +
+                (hours ? to_string(hours) + "h " : "") +
+                (minutes ? to_string(minutes) + "m " : "") +
+                (to_string(seconds) + "s")
+              ).c_str();
+              
+  - platform: ultrasonic
+    trigger_pin: GPIO14
+    echo_pin: GPIO12
+    name: "Zoutniveau waterontharder"
+    id: "ontharder"
+    update_interval: 30s
+    timeout: 2.0m
+    filters:
+    - delta: 0.01
+    - lambda: return (0.51-x)*100;
+    unit_of_measurement: "cm"
+
+  - platform: wifi_signal
+    name: "WiFi Signal Sensor"
+    disabled_by_default: true
+    update_interval: 60s
+    icon: "mdi:wifi-arrow-up-down"
+    
+  - platform: template
+    name: "Verwachte inhoud zoutvat"
+    icon: "mdi:scale"
+    lambda: |-
+      return (id(ontharder).state / ${corrected_height}) * ${capacity}.0;
+    update_interval: 1s
+    unit_of_measurement: "kg"
+    
+button:
+  - platform: restart
+    id: restart_button
+    name: "Herstart ${device_name}"
